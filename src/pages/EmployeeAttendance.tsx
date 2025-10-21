@@ -1,589 +1,384 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { EmployeeSidebar } from "@/components/EmployeeSidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Camera, Clock, CheckCircle, X, History, UserCheck, MapPin, ArrowLeft, Calendar } from "lucide-react";
-import { showToast } from "@/lib/toast";
-import { PastAttendance } from "@/components/PastAttendance";
+import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
+import { showToast } from "@/lib/toast";
 import { supabase } from "@/integrations/supabase/client";
-
-interface AttendanceRecord {
-  type: 'check-in' | 'check-out';
-  timestamp: Date;
-  photo: string;
-  location?: string;
-  date: string;
-}
-
-// Simulate getting today's date in YYYY-MM-DD format
-const getTodayDateString = () => {
-  return new Date().toISOString().split('T')[0];
-};
-
-export default function EmployeeAttendance() {
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [attendanceType, setAttendanceType] = useState<'check-in' | 'check-out'>('check-in');
-  const [location, setLocation] = useState<string>('');
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
-  const [isAttendanceComplete, setIsAttendanceComplete] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+import { Calendar, Building2, FileText, Clock, TrendingUp, CheckCircle, Camera, LogOut } from "lucide-react";
+export default function EmployeeDashboard() {
   const navigate = useNavigate();
+  const [applicationsCount, setApplicationsCount] = useState(0);
+  const [pendingApplicationsCount, setPendingApplicationsCount] = useState(0);
+  const [totalApplicationsCount, setTotalApplicationsCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [attendanceData, setAttendanceData] = useState({
+    totalDays: 0,
+    presentDays: 0,
+    percentage: 0
+  });
 
-  // Check if user has already completed attendance for today
-  const checkTodayAttendance = useCallback(async () => {
-    const today = getTodayDateString();
-    const username = localStorage.getItem('employeeUsername');
-    
-    if (!username) return;
-
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select('*')
-      .eq('employee_username', username)
-      .eq('date', today)
-      .order('timestamp', { ascending: true });
-
-    if (error) {
-      console.error('Error checking attendance:', error);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      setAttendanceType('check-in');
-      setIsAttendanceComplete(false);
-    } else {
-      const hasCheckIn = data.some(record => record.type === 'check-in');
-      const hasCheckOut = data.some(record => record.type === 'check-out');
-      
-      if (hasCheckIn && hasCheckOut) {
-        // Both check-in and check-out done - disable everything
-        setIsAttendanceComplete(true);
-      } else if (hasCheckIn && !hasCheckOut) {
-        // Only check-in done - allow check-out
-        setAttendanceType('check-out');
-        setIsAttendanceComplete(false);
-      } else {
-        // Start fresh
-        setAttendanceType('check-in');
-        setIsAttendanceComplete(false);
-      }
-    }
+  // Fetch applications count and notifications from database
+  useEffect(() => {
+    window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
-    checkTodayAttendance();
-  }, [checkTodayAttendance]);
+    fetchApplicationsCount();
+    fetchNotifications();
+    fetchAttendanceData();
+  }, []);
+  const fetchApplicationsCount = async () => {
+    try {
+      setLoading(true);
 
-  const getLocation = useCallback(async (): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation not supported'));
+      // Get current employee username from localStorage (assuming it's stored during login)
+      const currentEmployee = localStorage.getItem('employeeUsername') || 'Nazar'; // fallback for demo
+
+      // Fetch total applications assigned to current employee (all applications)
+      const {
+        data: totalApplications,
+        error: totalError
+      } = await supabase.from('applications').select('id', {
+        count: 'exact'
+      }).eq('assigned_to_username', currentEmployee);
+
+      // Fetch completed applications assigned to current employee (Banks Solved)
+      const {
+        data: completedApplications,
+        error: completedError
+      } = await supabase.from('applications').select('id', {
+        count: 'exact'
+      }).eq('assigned_to_username', currentEmployee).or('status.eq.completed,status.eq.closed,digital_signature_applied.eq.true');
+
+      // Fetch pending applications assigned to current employee only (not completed/closed)
+      const {
+        data: pendingApplications,
+        error: pendingError
+      } = await supabase.from('applications').select('id', {
+        count: 'exact'
+      }).eq('assigned_to_username', currentEmployee).in('status', ['draft', 'submitted', 'in_review', 'pending']);
+      if (totalError) {
+        console.error('Error fetching total applications:', totalError);
+      }
+      if (completedError) {
+        console.error('Error fetching completed applications:', completedError);
+      }
+      if (pendingError) {
+        console.error('Error fetching pending applications:', pendingError);
+      }
+      setTotalApplicationsCount(totalApplications?.length || 0);
+      setApplicationsCount(completedApplications?.length || 0);
+      setPendingApplicationsCount(pendingApplications?.length || 0);
+    } catch (error) {
+      console.error('Error fetching applications count:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const fetchAttendanceData = async () => {
+    try {
+      const currentEmployee = localStorage.getItem('employeeUsername') || 'Nazar';
+      
+      // Get current month start and end dates
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      // Fetch attendance records for current month
+      const { data: attendanceRecords, error: attendanceError } = await supabase
+        .from('attendance_records')
+        .select('date, type')
+        .eq('employee_username', currentEmployee)
+        .gte('date', startOfMonth.toISOString().split('T')[0])
+        .lte('date', endOfMonth.toISOString().split('T')[0]);
+      
+      if (attendanceError) {
+        console.error('Error fetching attendance:', attendanceError);
         return;
       }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          resolve(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          reject(error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000,
-        }
+      
+      // Fetch excluded dates for current month
+      const { data: excludedDates, error: excludedError } = await supabase
+        .from('attendance_excluded_dates')
+        .select('excluded_date')
+        .gte('excluded_date', startOfMonth.toISOString().split('T')[0])
+        .lte('excluded_date', endOfMonth.toISOString().split('T')[0]);
+      
+      if (excludedError) {
+        console.error('Error fetching excluded dates:', excludedError);
+      }
+      
+      // Get unique dates where employee checked in
+      const uniqueCheckInDates = new Set(
+        attendanceRecords
+          ?.filter(record => record.type === 'check-in')
+          .map(record => record.date) || []
       );
-    });
-  }, []);
-
-  const startCamera = useCallback(async () => {
-    try {
-      setIsCapturing(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 640 },
-          height: { ideal: 480 }
+      
+      const presentDays = uniqueCheckInDates.size;
+      
+      // Calculate total working days (excluding weekends and excluded dates)
+      let totalWorkingDays = 0;
+      const excludedDatesSet = new Set(excludedDates?.map(d => d.excluded_date) || []);
+      
+      for (let d = new Date(startOfMonth); d <= now && d <= endOfMonth; d.setDate(d.getDate() + 1)) {
+        const dayOfWeek = d.getDay();
+        const dateStr = d.toISOString().split('T')[0];
+        
+        // Skip Sundays (0) and excluded dates
+        if (dayOfWeek !== 0 && !excludedDatesSet.has(dateStr)) {
+          totalWorkingDays++;
         }
+      }
+      
+      const percentage = totalWorkingDays > 0 ? Math.round((presentDays / totalWorkingDays) * 100) : 0;
+      
+      setAttendanceData({
+        totalDays: totalWorkingDays,
+        presentDays,
+        percentage
       });
       
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
     } catch (error) {
-      console.error('Error accessing camera:', error);
-      showToast.error("Camera access denied. Please allow camera permissions.");
-      setIsCapturing(false);
-    }
-  }, []);
-
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCapturing(false);
-  }, []);
-
-  const capturePhoto = useCallback(async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        const photoData = canvas.toDataURL('image/jpeg', 0.8);
-        setCapturedImage(photoData);
-        
-        // Stop camera after capture
-        stopCamera();
-        
-        // Try to get location
-        setIsGettingLocation(true);
-        try {
-          const currentLocation = await getLocation();
-          setLocation(currentLocation);
-          showToast.success("Photo & Location captured successfully!");
-        } catch (error) {
-          console.error('Error getting location:', error);
-          showToast.success("Photo captured successfully!");
-        } finally {
-          setIsGettingLocation(false);
-        }
-      }
-    }
-  }, [getLocation, stopCamera]);
-
-  const handleSubmit = useCallback(async () => {
-    if (!capturedImage) {
-      showToast.error("Please capture a photo before submitting attendance.");
-      return;
-    }
-
-    if (!location) {
-      showToast.error("Location is required. Please wait for location to be captured.");
-      return;
-    }
-
-    const username = localStorage.getItem('employeeUsername');
-    const employeeId = localStorage.getItem('employeeId');
-
-    if (!username) {
-      showToast.error("Employee session not found. Please login again.");
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      setUploadProgress(0);
-
-      // Simulate progress animation
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 100);
-
-      // Upload image to Cloudinary via edge function
-      const response = await fetch(`${import.meta.env.VITE_API_HOST}/api/cloudinary/upload-attendance-to-cloudinary`, {
-
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    image: capturedImage,
-    employeeUsername: username,
-  }),
-});
-
-const uploadData = await response.json();
-if (!response.ok || !uploadData.success) {
-  throw new Error(uploadData.error || "Failed to upload image to Cloudinary");
-}
-
-
-
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      const cloudinaryUrl = uploadData.url;
-
-      // Store attendance record with Cloudinary URL
-      const { error } = await supabase
-        .from('attendance_records')
-        .insert({
-          employee_id: employeeId || username,
-          employee_username: username,
-          type: attendanceType,
-          timestamp: new Date().toISOString(),
-          photo: cloudinaryUrl,
-          location: location || 'Location unavailable',
-          date: getTodayDateString(),
-        });
-
-      if (error) throw error;
-
-      setTimeout(() => {
-        showToast.success(`${attendanceType === 'check-in' ? 'Check-in' : 'Check-out'} recorded successfully!`);
-        
-        // Reset form
-        setCapturedImage(null);
-        setLocation('');
-        setUploadProgress(0);
-        setIsUploading(false);
-        stopCamera();
-        
-        // Update attendance type for next action
-        checkTodayAttendance();
-      }, 500);
-    } catch (error) {
-      console.error('Error submitting attendance:', error);
-      setIsUploading(false);
-      setUploadProgress(0);
-      showToast.error("Failed to record attendance. Please try again.");
-    }
-  }, [capturedImage, attendanceType, location, stopCamera, checkTodayAttendance]);
-
-  const retakePhoto = useCallback(() => {
-    setCapturedImage(null);
-    setLocation('');
-    startCamera();
-  }, [startCamera]);
-
-  const mockAttendanceData = [
-    {
-      date: '2024-01-15',
-      checkIn: '09:00 AM',
-      checkOut: '05:30 PM',
-      hoursWorked: '8h 30m',
-      status: 'Present' as const,
-      location: 'Main Office - Delhi',
-      tasks: ['Case review: Bank vs. ABC Corp', 'Client consultation', 'Document preparation']
-    },
-    {
-      date: '2024-01-14',
-      checkIn: '08:45 AM',
-      checkOut: '06:00 PM',
-      hoursWorked: '9h 15m',
-      status: 'Present' as const,
-      location: 'Main Office - Delhi',
-      tasks: ['Court hearing preparation', 'Legal research', 'Team meeting']
-    },
-    {
-      date: '2024-01-13',
-      checkIn: '09:15 AM',
-      checkOut: '05:45 PM',
-      hoursWorked: '8h 30m',
-      status: 'Present' as const,
-      location: 'Main Office - Delhi',
-      tasks: ['Client documentation', 'Contract review', 'Administrative tasks']
-    }
-  ];
-
-  const todayAttendanceStatus = () => {
-    const today = getTodayDateString();
-    const todayRecords = attendanceRecords.filter(record => record.date === today);
-    
-    if (todayRecords.length === 0) {
-      return { status: 'Not Started', color: 'bg-slate-100 text-slate-600' };
-    }
-    
-    const lastRecord = todayRecords[todayRecords.length - 1];
-    if (lastRecord.type === 'check-in') {
-      return { status: 'Checked In', color: 'bg-green-100 text-green-800' };
-    } else {
-      return { status: 'Checked Out', color: 'bg-blue-100 text-blue-800' };
+      console.error('Error fetching attendance data:', error);
     }
   };
 
-  const todayStatus = todayAttendanceStatus();
+  const fetchNotifications = async () => {
+    try {
+      // Get current employee username from localStorage
+      const currentEmployee = localStorage.getItem('employeeUsername') || 'Nazar';
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        {/* Back Navigation */}
-        <div className="mb-6 animate-fade-in">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate('/employee-dashboard')}
-            className="text-slate-700 hover:text-slate-900 hover:bg-white/50 transition-all duration-200"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </div>
+      // Fetch notifications for the current employee (last 5 notifications)
+      const {
+        data: notificationsData,
+        error
+      } = await supabase.from('notifications').select('*').eq('employee_username', currentEmployee).order('created_at', {
+        ascending: false
+      }).limit(5);
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        return;
+      }
 
-        <Card className="shadow-2xl border-0 bg-white/90 backdrop-blur-md overflow-hidden animate-scale-in">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-indigo-500/5 pointer-events-none" />
-          
-          <CardHeader className="text-center pb-8 pt-10 relative">
-            <div className="flex items-center justify-center mb-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full blur-xl opacity-30 animate-pulse" />
-                <div className="relative h-20 w-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-xl">
-                  <UserCheck className="h-10 w-10 text-white" />
-                </div>
-              </div>
+      // Transform notifications data for display
+      const formattedNotifications = notificationsData?.map(notification => {
+        const timeAgo = getTimeAgo(notification.created_at);
+        return {
+          type: notification.type || 'Notification',
+          message: notification.message,
+          time: timeAgo,
+          applicationId: notification.application_id,
+          isRead: notification.is_read
+        };
+      }) || [];
+      setNotifications(formattedNotifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // Helper function to calculate time ago
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+    if (diffInMinutes < 1) return 'just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  const analyticsData = {
+    attendance: attendanceData,
+    banksSolved: applicationsCount,
+    pendingCases: pendingApplicationsCount,
+    totalCases: totalApplicationsCount
+  };
+  return <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-gradient-employee-light font-kontora">
+        <EmployeeSidebar />
+        
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center px-6 gap-4">
+            <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+            <div className="flex-1">
+              <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
+              <p className="text-sm text-muted-foreground">Welcome back! Here's your overview.</p>
             </div>
-            <CardTitle className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-3">
-              Employee Attendance
-            </CardTitle>
-            <CardDescription className="text-slate-600 text-base md:text-lg max-w-2xl mx-auto">
-              Secure attendance tracking with photo verification and GPS location
-            </CardDescription>
             
-            {/* Today's Status */}
-            <div className="flex items-center justify-center gap-3 mt-6 bg-white/70 backdrop-blur-sm rounded-full px-6 py-3 shadow-md w-fit mx-auto border border-slate-200/50">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium text-slate-700">Today's Status:</span>
-              <Badge className={`${todayStatus.color} px-4 py-1 text-sm font-semibold shadow-sm`}>
-                {todayStatus.status}
-              </Badge>
+            <div className="flex items-center gap-3">
+              {/* Attendance Button */}
+              <Button onClick={() => navigate('/employee/attendance')} className="bg-employee-legal hover:bg-employee-legal-hover text-employee-legal-foreground">
+                <Camera className="h-4 w-4 mr-2" />
+                Enter Attendance
+              </Button>
+              
+              {/* Logout Button */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white border-red-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You will be redirected to the login page and will need to sign in again.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                    showToast.success("Successfully logged out!");
+                    navigate('/');
+                  }} className="bg-red-600 hover:bg-red-700">
+                      Yes, Logout
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
-          </CardHeader>
-          
-          <CardContent className="relative px-6 md:px-10 pb-10">
-            <Tabs defaultValue="capture" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-8 h-14 bg-slate-100/80 p-1 rounded-xl shadow-inner">
-                <TabsTrigger 
-                  value="capture" 
-                  className="flex items-center gap-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-700 rounded-lg transition-all duration-200"
-                >
-                  <Camera className="h-5 w-5" />
-                  Capture Attendance
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="history" 
-                  className="flex items-center gap-2 text-base font-medium data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-700 rounded-lg transition-all duration-200"
-                >
-                  <History className="h-5 w-5" />
-                  Attendance History
-                </TabsTrigger>
-              </TabsList>
+          </header>
 
-              <TabsContent value="capture" className="space-y-8">
-                {/* Attendance Type Selection */}
-                <div className="flex justify-center gap-4 mb-8">
-                  <Button
-                    variant={attendanceType === 'check-in' ? 'default' : 'outline'}
-                    onClick={() => setAttendanceType('check-in')}
-                    className={`flex items-center gap-3 px-8 py-6 text-lg font-semibold rounded-xl transition-all duration-300 ${
-                      attendanceType === 'check-in' 
-                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl scale-105' 
-                        : 'border-2 border-slate-300 text-slate-400 bg-slate-50 cursor-not-allowed'
-                    }`}
-                    disabled={attendanceType !== 'check-in' || isAttendanceComplete}
-                  >
-                    <Clock className="h-6 w-6" />
-                    Check In
-                  </Button>
-                  <Button
-                    variant={attendanceType === 'check-out' ? 'default' : 'outline'}
-                    onClick={() => setAttendanceType('check-out')}
-                    className={`flex items-center gap-3 px-8 py-6 text-lg font-semibold rounded-xl transition-all duration-300 ${
-                      attendanceType === 'check-out' 
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl scale-105' 
-                        : 'border-2 border-slate-300 text-slate-400 bg-slate-50 cursor-not-allowed'
-                    }`}
-                    disabled={attendanceType !== 'check-out' || isAttendanceComplete}
-                  >
-                    <CheckCircle className="h-6 w-6" />
-                    Check Out
-                  </Button>
-                </div>
+          {/* Main Content */}
+          <main className="flex-1 p-6 space-y-6">
+            {/* Analytics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Attendance Rate
+                  </CardTitle>
+                  <Calendar className="h-4 w-4 text-employee-legal" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">
+                    {analyticsData.attendance.percentage}%
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {analyticsData.attendance.presentDays}/{analyticsData.attendance.totalDays} days this month
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant={analyticsData.attendance.percentage >= 90 ? "default" : "destructive"}>
+                      {analyticsData.attendance.percentage >= 90 ? "Excellent" : "Needs Improvement"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
 
-                {/* Camera Section */}
-                <Card className="border-0 bg-gradient-to-br from-slate-50 to-slate-100 shadow-xl">
-                  <CardContent className="p-8">
-                    {isAttendanceComplete ? (
-                      <div className="text-center py-16 px-6">
-                        <div className="relative inline-block mb-6">
-                          <div className="absolute inset-0 bg-green-500/20 rounded-full blur-2xl animate-pulse" />
-                          <div className="relative bg-gradient-to-br from-green-500 to-emerald-500 rounded-full p-6 shadow-2xl">
-                            <CheckCircle className="h-20 w-20 text-white" />
-                          </div>
-                        </div>
-                        <p className="text-2xl font-bold text-slate-800 mb-3">
-                          Attendance Complete! 🎉
-                        </p>
-                        <p className="text-slate-600 text-lg">
-                          You have successfully completed your check-in and check-out for today.
-                        </p>
-                      </div>
-                    ) : !capturedImage ? (
-                      <div className="space-y-6">
-                        {!isCapturing ? (
-                          <div className="text-center py-12 px-6">
-                            <div className="relative inline-block mb-6">
-                              <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-2xl" />
-                              <div className="relative bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full p-8 shadow-lg">
-                                <Camera className="h-20 w-20 text-blue-600" />
-                              </div>
-                            </div>
-                            <p className="text-slate-700 text-lg mb-6 font-medium">
-                              Ready to capture your attendance photo
+              <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Banks Solved
+                  </CardTitle>
+                  <Building2 className="h-4 w-4 text-employee-legal" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : analyticsData.banksSolved}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Successfully resolved cases
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-employee-legal border-employee-legal">
+                      This Month
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Pending Cases
+                  </CardTitle>
+                  <Clock className="h-4 w-4 text-employee-legal" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : analyticsData.pendingCases}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Awaiting resolution
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant="destructive">
+                      Action Required
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Total Cases
+                  </CardTitle>
+                  <FileText className="h-4 w-4 text-employee-legal" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">
+                    {loading ? "..." : analyticsData.totalCases}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Handled this year
+                  </p>
+                  <div className="flex items-center mt-2 text-employee-legal">
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <span className="text-xs font-medium">+12% from last month</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Activity */}
+            <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-foreground">Recent Activity</CardTitle>
+                <CardDescription>Your latest actions and updates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {notifications.length > 0 ? notifications.map((notification, index) => <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className={`h-5 w-5 ${notification.isRead ? 'text-muted-foreground' : 'text-employee-legal'}`} />
+                          <div>
+                            <p className="font-medium text-foreground">{notification.type}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {notification.message}
                             </p>
-                            <Button 
-                              onClick={startCamera} 
-                              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                              disabled={isAttendanceComplete}
-                            >
-                              <Camera className="h-6 w-6 mr-3" />
-                              Start Camera
-                            </Button>
+                            {notification.applicationId && <p className="text-xs text-muted-foreground">
+                                App ID: {notification.applicationId}
+                              </p>}
                           </div>
-                        ) : (
-                          <div className="space-y-6">
-                            <div className="relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-4 ring-blue-500/20">
-                              <video
-                                ref={videoRef}
-                                className="w-full h-96 object-cover"
-                                autoPlay
-                                muted
-                                playsInline
-                              />
-                              <canvas ref={canvasRef} className="hidden" />
-                              <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
-                                <Badge className="bg-red-500 text-white px-3 py-1 animate-pulse">
-                                  <div className="h-2 w-2 bg-white rounded-full mr-2" />
-                                  Recording
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="flex gap-4 justify-center">
-                              <Button 
-                                onClick={capturePhoto} 
-                                disabled={isGettingLocation}
-                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-                              >
-                                <Camera className="h-6 w-6 mr-3" />
-                                {isGettingLocation ? 'Capturing...' : 'Capture Photo'}
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                onClick={stopCamera}
-                                className="px-8 py-6 text-lg rounded-xl border-2 hover:bg-slate-100"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="relative rounded-2xl overflow-hidden shadow-2xl ring-4 ring-green-500/20">
-                          <img 
-                            src={capturedImage} 
-                            alt="Captured attendance" 
-                            className="w-full h-96 object-cover"
-                          />
-                          <Badge 
-                            variant="secondary" 
-                            className="absolute top-4 right-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 text-sm font-semibold shadow-lg"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Photo Captured
-                          </Badge>
                         </div>
-                        
-                        {location ? (
-                          <div className="flex items-start gap-3 text-sm bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-200 shadow-sm">
-                            <div className="mt-0.5 bg-green-500 rounded-full p-2">
-                              <MapPin className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-green-900 mb-1">Location Verified</p>
-                              <span className="text-green-700">{location}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-start gap-3 text-sm bg-gradient-to-r from-orange-50 to-amber-50 p-4 rounded-xl border-2 border-orange-200 shadow-sm">
-                            <div className="mt-0.5 bg-orange-500 rounded-full p-2 animate-pulse">
-                              <MapPin className="h-5 w-5 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-orange-900 mb-1">Fetching Location</p>
-                              <span className="text-orange-700">Please wait while we verify your location...</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                         {isUploading && (
-                           <div className="space-y-3 bg-blue-50 p-6 rounded-xl border-2 border-blue-200">
-                             <div className="flex items-center justify-between">
-                               <span className="text-blue-900 font-semibold text-base">Uploading to Server...</span>
-                               <span className="text-blue-700 font-bold text-lg">{uploadProgress}%</span>
-                             </div>
-                             <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden shadow-inner">
-                               <div 
-                                 className="bg-gradient-to-r from-blue-600 to-indigo-600 h-3 rounded-full transition-all duration-300 ease-out shadow-lg"
-                                 style={{ width: `${uploadProgress}%` }}
-                               />
-                             </div>
-                           </div>
-                         )}
-                         
-                         <div className="flex gap-4 justify-center pt-2">
-                           <Button 
-                             onClick={handleSubmit} 
-                             className={`px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 ${
-                               attendanceType === 'check-in'
-                                 ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                             } text-white`}
-                             disabled={!location || isUploading}
-                           >
-                             <CheckCircle className="h-6 w-6 mr-3" />
-                             Submit {attendanceType === 'check-in' ? 'Check In' : 'Check Out'}
-                           </Button>
-                           <Button 
-                             variant="outline" 
-                             onClick={retakePhoto} 
-                             disabled={isUploading}
-                             className="px-8 py-6 text-lg rounded-xl border-2 hover:bg-slate-100"
-                           >
-                             Retake Photo
-                           </Button>
-                         </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                        <span className="text-sm text-muted-foreground">{notification.time}</span>
+                      </div>) : <div className="flex items-center justify-center p-8 text-muted-foreground">
+                      <p>No recent notifications</p>
+                    </div>}
+                </div>
+              </CardContent>
+            </Card>
 
-              <TabsContent value="history">
-                <PastAttendance />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+            {/* Quick Actions */}
+            <Card className="border-0 shadow-card bg-gradient-to-br from-card to-card/80">
+              
+              
+            </Card>
+          </main>
+        </div>
       </div>
-    </div>
-  );
+    </SidebarProvider>;
 }
