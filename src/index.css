@@ -1,0 +1,517 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+
+Animation keyframes for smooth transitions and effects
+*/
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes hover-scale {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes spin-slow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-20px) translateX(10px);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(20px) translateX(-10px);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes text-3d {
+  0% {
+    text-shadow: 0 0 0 transparent;
+    transform: translateZ(0);
+  }
+  50% {
+    text-shadow: 
+      2px 2px 4px hsl(215 45% 25% / 0.3),
+      4px 4px 8px hsl(215 45% 25% / 0.2),
+      6px 6px 12px hsl(215 45% 25% / 0.1);
+    transform: translateZ(10px);
+  }
+  100% {
+    text-shadow: 
+      1px 1px 2px hsl(215 45% 25% / 0.2),
+      2px 2px 4px hsl(215 45% 25% / 0.1);
+    transform: translateZ(0);
+  }
+}
+
+@keyframes typewriter {
+  0% {
+    width: 0;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    width: 100%;
+    opacity: 1;
+  }
+}
+
+@keyframes glow-text {
+  0%, 100% {
+    text-shadow: 
+      0 0 20px hsl(var(--justice-gold) / 0.5),
+      0 0 40px hsl(var(--justice-gold) / 0.3),
+      0 0 60px hsl(var(--justice-gold) / 0.1);
+  }
+  50% {
+    text-shadow: 
+      0 0 30px hsl(var(--justice-gold) / 0.8),
+      0 0 60px hsl(var(--justice-gold) / 0.5),
+      0 0 90px hsl(var(--justice-gold) / 0.3);
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes letter-spacing {
+  0%, 100% {
+    letter-spacing: 0.1em;
+  }
+  50% {
+    letter-spacing: 0.3em;
+  }
+}
+
+/* Utility classes for animations */
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.6s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.4s ease-out;
+}
+
+.hover-scale {
+  transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
+}
+
+.animate-spin-3s {
+  animation: spin-slow 3s linear 1;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 8s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-3d-text {
+  animation: text-3d 3s ease-in-out infinite;
+}
+
+.animate-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typewriter 2s steps(15, end) 1s both;
+}
+
+.animate-glow-text {
+  animation: glow-text 3s ease-in-out infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 1s ease-out 1.5s both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--justice-gold) / 0.8) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.bg-gradient-animated {
+  background: linear-gradient(-45deg, 
+    hsl(220 40% 96%), 
+    hsl(260 30% 98%), 
+    hsl(45 60% 98%), 
+    hsl(220 40% 96%)
+  );
+  background-size: 400% 400%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+@layer base {
+  :root {
+    --background: 220 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 215 45% 25%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 215 45% 20%;
+
+    --secondary: 210 20% 92%;
+    --secondary-foreground: 215 25% 25%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 15% 50%;
+
+    --accent: 45 85% 60%;
+    --accent-foreground: 215 25% 15%;
+    --accent-hover: 45 85% 55%;
+
+    /* Login theme colors - Legal professional theme */
+    --admin-red: 0 70% 55%;
+    --admin-red-foreground: 0 0% 100%;
+    --admin-red-hover: 0 70% 50%;
+    
+    --admin-blue: 215 100% 60%;
+    --admin-blue-foreground: 0 0% 100%;
+    --admin-blue-hover: 215 100% 55%;
+    
+    --employee-legal: 220 60% 25%;
+    --employee-legal-foreground: 0 0% 100%;
+    --employee-legal-hover: 220 60% 20%;
+    
+    --bank-navy: 220 60% 20%;
+    --bank-navy-foreground: 0 0% 100%;
+    --bank-navy-hover: 220 60% 15%;
+    
+    --bank-success: 160 50% 40%;
+    --bank-success-foreground: 0 0% 100%;
+    --bank-warning: 40 90% 50%;
+    --bank-warning-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 210 25% 88%;
+    --input: 210 25% 92%;
+    --ring: 215 45% 25%;
+
+    /* Legal-themed colors */
+    --justice-gold: 45 85% 60%;
+    --legal-deep-blue: 220 60% 20%;
+    --court-purple: 260 50% 35%;
+    --law-emerald: 160 50% 30%;
+    --prestige-amber: 40 90% 55%;
+
+    /* Corporate dashboard colors */
+    --corporate-blue: 200 95% 45%;
+    --corporate-blue-foreground: 0 0% 100%;
+    --corporate-teal: 180 85% 40%;
+    --corporate-teal-foreground: 0 0% 100%;
+    --dashboard-bg: 210 25% 98%;
+    --dashboard-card: 0 0% 100%;
+    --dashboard-card-hover: 210 25% 99%;
+
+    /* Professional gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(215 45% 35%));
+    --gradient-hero: linear-gradient(135deg, hsl(215 45% 15%) 0%, hsl(215 45% 25%) 50%, hsl(215 45% 35%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(210 20% 98%) 100%);
+    --gradient-corporate: linear-gradient(135deg, hsl(var(--corporate-blue)) 0%, hsl(var(--corporate-teal)) 100%);
+    --gradient-dashboard: linear-gradient(180deg, hsl(var(--dashboard-bg)) 0%, hsl(210 30% 96%) 100%);
+    
+    /* Legal-themed gradients */
+    --gradient-justice: linear-gradient(135deg, hsl(var(--legal-deep-blue)) 0%, hsl(var(--court-purple)) 50%, hsl(var(--justice-gold)) 100%);
+    --gradient-law-firm: linear-gradient(145deg, hsl(220 60% 25%) 0%, hsl(260 50% 40%) 100%);
+    --gradient-prestige: linear-gradient(135deg, hsl(var(--prestige-amber)) 0%, hsl(var(--justice-gold)) 100%);
+    --gradient-legal-bg: linear-gradient(145deg, hsl(220 30% 98%) 0%, hsl(215 40% 99%) 50%, hsl(210 25% 97%) 100%);
+    --gradient-employee-light: linear-gradient(180deg, hsl(210 25% 97%) 0%, hsl(220 20% 95%) 100%);
+    --gradient-employee-rich: linear-gradient(135deg, hsl(220 60% 25%) 0%, hsl(215 45% 30%) 50%, hsl(210 50% 35%) 100%);
+    --gradient-bank-light: linear-gradient(180deg, hsl(220 40% 98%) 0%, hsl(220 30% 96%) 100%);
+    --gradient-bank-rich: linear-gradient(135deg, hsl(160 60% 20%) 0%, hsl(150 50% 30%) 50%, hsl(140 55% 40%) 100%);
+
+    /* Professional shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(215 45% 25% / 0.3);
+    --shadow-card: 0 4px 20px -4px hsl(215 45% 25% / 0.15);
+    --shadow-glow: 0 0 40px hsl(var(--accent) / 0.3);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Yin-Yang Loader Styles - Yellow & Blue Theme */
+.yin-yang-loader {
+  width: 96px;
+  box-sizing: content-box;
+  height: 48px;
+  background: hsl(var(--justice-gold));
+  border-color: hsl(var(--legal-deep-blue));
+  border-style: solid;
+  border-width: 2px 2px 50px 2px;
+  border-radius: 100%;
+  position: relative;
+  animation: 3s yinYang linear infinite;
+}
+
+.yin-yang-loader:before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  background: hsl(var(--justice-gold));
+  border: 18px solid hsl(var(--legal-deep-blue));
+  border-radius: 100%;
+  width: 12px;
+  height: 12px;
+  box-sizing: content-box;
+}
+
+.yin-yang-loader:after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: hsl(var(--legal-deep-blue));
+  border: 18px solid hsl(var(--justice-gold));
+  border-radius: 100%;
+  width: 12px;
+  height: 12px;
+  box-sizing: content-box;
+}
+
+@keyframes yinYang {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Floating Loading Text */
+.loading-text-container {
+  position: relative;
+  display: inline-block;
+  margin-top: 60px;
+}
+
+.loading-text-container::before {
+  content: 'Loading';
+  color: hsl(var(--legal-deep-blue));
+  font-family: 'Poppins', Arial, Helvetica, sans-serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: floating 1s ease-out infinite alternate;
+}
+
+.loading-text-container::after {
+  content: '';  
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.1);
+  position: absolute;
+  left: 0;
+  top: 100%;
+  filter: blur(4px);
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: animloader 1s ease-out infinite alternate;
+}
+
+@keyframes floating {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-15px);
+  }
+}
+
+@keyframes animloader {
+  0% {
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1.2);
+  }
+}
